@@ -10,7 +10,7 @@ export default [
             ecmaVersion: 2020,
             parser: typescriptParser,
             parserOptions: {
-                project: ["tsconfig.json", "./tsconfig.main.json"],
+                project: ["tsconfig.json", "./tsconfig.main.json", "./tsconfig.test.json"],
                 sourceType: "module",
             },
             globals: {

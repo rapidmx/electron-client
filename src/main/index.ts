@@ -27,7 +27,7 @@ ipcMain.handle("rapidmx:get-config", () => config);
  * handles credentials directly, it only ever calls the already-authenticated RapidMX/auth-server APIs
  * (see `src/renderer/main.tsx`).
  */
-async function loadRenderer(window: BrowserWindow): Promise<void> {
+export async function loadRenderer(window: BrowserWindow): Promise<void> {
     if (rendererDevServerUrl) {
         await window.loadURL(rendererDevServerUrl);
     } else {
@@ -47,7 +47,7 @@ async function loadRenderer(window: BrowserWindow): Promise<void> {
  * contract between `auth-server`'s page and this shell - deliberately so, since `auth-server` has no
  * reason to know an Electron shell is even the one loading it.
  */
-function createSignInWindow(): void {
+export function createSignInWindow(): void {
     const window = new BrowserWindow({
         width: 1280,
         height: 860,

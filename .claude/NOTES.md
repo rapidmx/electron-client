@@ -12,14 +12,47 @@ Keep entries terse — this is a reference, not a transcript.
 ## Standing decisions
 
 - **Commit discipline.** Don't `git commit` unless explicitly asked for *that specific piece of
-  work*. Default to leaving changes staged/unstaged and saying so.
+  work*. An autonomous-execution/"commit as you go" approval given for one approved plan (e.g. via
+  plan mode) is scoped to that plan only — it does not carry forward to later, separate requests in
+  the same session, even ones that look similar in kind (a follow-up review-and-fix pass, a
+  refactor, a new feature), and even after a full review-and-fix cycle with passing tests. Default
+  to leaving changes staged/unstaged and saying so; only commit automatically within the exact
+  scope of a plan that was explicitly approved as autonomous. If unsure whether new work falls
+  inside that scope, treat it as outside and ask.
 - **Commit message style: a flat list of one-line, verb-led items — no summary/title line, no
-  `-`/`*` bullet markers.** Dictated by how `@rapidrest/cli`'s `release` command builds
-  `CHANGELOG.md` from `git log` - see `rapidmx/react-shared`'s or `rapidmx/postfix-bridge`'s own
-  NOTES.md for the full incident writeup. Copy this rule verbatim into each sibling repo rather
-  than paraphrasing it.
-- **Never bump `package.json`'s `version` field or publish this package** - it's `"private":
-  true` and not meant to be published at all; version bumps here are purely cosmetic/manual.
+  `-`/`*` bullet markers.** This isn't just a style preference — it's dictated by how `release`
+  (`@rapidrest/cli`) actually builds `CHANGELOG.md`. `collectChangelogBullets`/
+  `classifyChangelogLine` (that repo's `src/lib/release.ts`) parse `git log --pretty=format:%B` and
+  treat **every non-blank line of a commit's full message as its own changelog bullet** — there is
+  no subject/body distinction. A conventional "short imperative subject + blank line + prose body"
+  commit therefore leaks one changelog bullet per body sentence, and a `-`/`*`-prefixed line breaks
+  `classifyChangelogLine`'s verb detection (it reads the line's first whitespace-delimited word as
+  the verb; a leading `-` defeats that lookup and the dash leaks into the changelog text as
+  `"- - Added foo"`). Correct format:
+  - No separate summary/title line — if a commit needs an overview, that overview is itself just
+    one more flat line, not a heading distinct from the rest.
+  - No bullet-marker prefix of any kind — write bare lines.
+  - Lead each line with an imperative verb where it fits: `Add`/`Fix`/`Remove` (and `-ing` forms)
+    are recognized and become `Added`/`Fixed`/`Removed` entries; `Configuring`/`Converting`/
+    `Refactoring`/`Updating`/etc. become `Changed`. Anything else still works, defaulting to
+    `Changed` verbatim — see `CHANGELOG_VERB_REWRITES` in that repo's `src/lib/release.ts` for the
+    full map.
+  - A blank line before a trailing git trailer (`Co-Authored-By:`, `Signed-off-by:`, etc.) is fine
+    — trailers matching `CHANGELOG_NOISE_PATTERNS` are dropped from the changelog — but nothing
+    else should follow the item list.
+  This mirrors JP's standing convention across his other repos; copy this exact rule verbatim into
+  each sibling repo's own NOTES.md rather than paraphrasing it, since the paraphrase is what caused
+  this to be gotten wrong in the first place (see `@rapidrest/cli`'s own NOTES.md, 2026-09-07 entry,
+  for the full incident writeup and the `CHANGELOG_NOISE_PATTERNS` fix that accompanied it).
+- **Never bump a `package.json` `version` field, in this repo or any sibling `@rapidrest/*` repo,
+  and never publish/`npm publish` one.** JP has a formal release process for that (see e.g.
+  `mail-server`'s own `"version"`/`"postversion"` npm-lifecycle scripts, which sync the Helm
+  chart/README and push tags — a manual version edit bypasses all of that and produces conflicts).
+  This applies even when a fix in a sibling repo is otherwise done and verified: land the source
+  fix, leave the version field alone, and tell JP it's ready for him to version/publish himself.
+  Once he publishes, bump *this* repo's dependency constraint (e.g. `"@rapidrest/auth": "^X.Y.Z"`)
+  to the version he actually published — that part is fine, since it's just declaring what this
+  repo needs, not deciding a sibling repo's own release number.
 - **This repo is intentionally minimal** - one page (`SettingsReadReceiptsPage`), no router, no
   packaging/distribution tooling. It exists to prove `@rapidmx/web-client`'s components genuinely
   run outside `@rapidrest/react`'s SSR machinery, not to be a shippable desktop app. Don't add
@@ -77,6 +110,41 @@ history this builds on). Renders `SettingsReadReceiptsPage`, imported unmodified
   session). See this repo's own README for the CORS/`SameSite` prerequisites those live services
   still need before any of that would work end to end.
 - Not committed - same standing rule; JP reviews and commits when ready.
+
+### 2026-09-11 — Test infrastructure added: 100% coverage, real CONTRIBUTING.md
+
+This repo had zero tests until now. Added a full Vitest setup (`vitest.config.ts`,
+`test/setup.ts`, `@testing-library/react`+`jest-dom`, `jsdom`) mirroring `web-client`'s own
+config, with a `src/**` coverage threshold pinned to 100% across statements/branches/functions/
+lines (JP: "I want everythign to have 100% code coverage across all repos, where possible").
+
+- **`src/main/index.ts`'s `loadRenderer`/`createSignInWindow` were made `export`ed** purely so
+  tests can call them directly - both were previously module-private. No behavior change.
+- **`electron` itself is fully mocked** (`vi.mock("electron", ...)`, `app`/`BrowserWindow`/
+  `ipcMain` as plain `vi.fn()`s) - there is no real Electron runtime available in test (or this
+  sandbox generally - see 2026-09-10's `ELECTRON_RUN_AS_NODE` entry above). `BrowserWindow` is
+  mocked as a real `function` (not an arrow function) so `new BrowserWindow(...)` and
+  `.mock.instances`/`.mock.results` both work.
+- **`src/main/index.ts` has module-level side effects** (registers `ipcMain.handle` and
+  `app.on(...)` at import time, and calls `createSignInWindow()` inside `app.whenReady().then()`)
+  - every test does `vi.resetModules()` + a fresh dynamic `import()` per scenario, then either
+    inspects the mock call history directly or invokes a captured handler/callback. Same pattern
+    for `src/renderer/main.tsx` (also side-effecting at import time via
+    `window.rapidmx.getConfig().then(...)`) - wrapped in `@testing-library/react`'s `act()` since
+    that `.then()` callback calls `createRoot(...).render(...)` outside of any `render()` call the
+    test itself makes.
+- **`vi.mock()` targets for this repo's own relative imports must be given relative to the test
+  file, not the file under test** - e.g. `src/renderer/main.tsx`'s own `import "./styles.css"` had
+  to be mocked from `test/renderer/main.test.tsx` as `vi.mock("../../src/renderer/styles.css", ...)`,
+  not `"./styles.css"` (which would target a nonexistent `test/renderer/styles.css`).
+- Fixed `CONTRIBUTING.md`'s bug-report/feature-request examples, which were still the generic
+  RapidMX template's `@rapidrest`-flavored ones (`ModelRoute`/`@Route`/MongoDB, `@rapidrest/core`
+  version reporting) - none of that applies to an Electron shell. Replaced with an
+  Electron-appropriate example (sign-in → renderer handoff) and Project Info fields (app version,
+  Electron version, OS) - same issue likely exists in other sibling repos' `CONTRIBUTING.md`
+  (confirmed present in `react-shared`'s too) but out of scope here; only this repo's copy was
+  fixed.
+- Not committed - same standing rule; JP said "hold off on commit" explicitly this session.
 
 ## Future work
 

@@ -1,0 +1,10 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright (C) 2026 Jean-Philippe Steinmetz
+// SPDX-License-Identifier: MPL-2.0
+///////////////////////////////////////////////////////////////////////////////
+import "@testing-library/jest-dom/vitest";
+import { cleanup } from "@testing-library/react";
+
+afterEach(() => {
+    cleanup();
+});

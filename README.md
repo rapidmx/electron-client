@@ -1,11 +1,8 @@
 # RapidMX: Desktop Client
 
-An Electron shell around [`@rapidmx/web-client`](https://github.com/rapidmx/web-client)'s React UI — the
+An Electron shell around [`@rapidmx/web-client`](https://github.com/rapidmx/web-client)'s React UI. Uses the
 same components [`rapidmx/server`](https://github.com/rapidmx/server) server-renders, running here as a
-plain client-side SPA with no SSR step at all. This repo is deliberately small: it proves the "same source
-builds the web client, the server, and a desktop app" split actually works, rendering one real page
-(`SettingsReadReceiptsPage`, under Settings → Read Receipts) end to end against a real running
-`rapidmx/server` + `auth-server`.
+plain client-side SPA with no SSR step at all.
 
 ## How it works
 
