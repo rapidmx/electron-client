@@ -19,7 +19,8 @@
     "start": "electron .",
     "lint": "eslint ./src ./test",
     "test": "vitest run --coverage",
-    "test:watch": "vitest --watch --coverage"
+    "test:watch": "vitest --watch --coverage",
+    "release": "npx @rapidrest/cli release"
   },
   "prettier": {
     "printWidth": 120,
