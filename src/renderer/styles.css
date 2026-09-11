@@ -1,0 +1,11 @@
+/*
+ * Tailwind v4's automatic content scanning excludes `node_modules` by default - exactly where
+ * `@rapidmx/web-client`'s (and transitively, its own tiptap/@dnd-kit dependents') TSX source lives from
+ * this repo's own perspective (it's a `link:`-ed sibling, resolved through this path). `@source` opts
+ * that directory back in - see Tailwind's own docs on scanning a dependency's source for exactly this
+ * "a linked/installed package's own source needs scanning too" case. Without this, every `bg-primary`/
+ * `text-muted`/etc. utility class `@rapidmx/web-client`'s components use renders as nothing at all -
+ * the class exists in the DOM, but no matching rule is ever generated for it.
+ */
+@import "@rapidmx/web-client/shared/styles/app.css";
+@source "../../node_modules/@rapidmx/web-client/apps";
