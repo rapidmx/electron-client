@@ -77,3 +77,35 @@ history this builds on). Renders `SettingsReadReceiptsPage`, imported unmodified
   session). See this repo's own README for the CORS/`SameSite` prerequisites those live services
   still need before any of that would work end to end.
 - Not committed - same standing rule; JP reviews and commits when ready.
+
+## Future work
+
+- **Server bootstrap (deferred — JP: "a future task once the pre-requisite work is completed in
+  restapi").** Today this app only knows which `server`/`auth-server` to point at via
+  `RAPIDMX_SERVER_URL`/`RAPIDMX_AUTH_SERVER_URL` env vars (or their hardcoded `localhost`
+  defaults) - fine for this dev-mode spike, not viable once this app is packaged and installed
+  for arbitrary RapidMX users on arbitrary domains. The intended real mechanism: prompt for the
+  user's email address, then resolve their domain's `_rapidmx.<domain>` DNS TXT record
+  (`v=RMXv1; id=<id>; host=<host>;`) to find their server - documented in `restapi`'s
+  `specs/end-to-end_encryption.md` ("Domain Lookup" section) and already implemented server-side
+  for federated key discovery in `restapi/src/util/FederationUtils.ts`
+  (`resolveFederationPolicy()`/`parsePolicyRecord()` - the exact parsing rules to mirror, not
+  reinvent, when this is picked up).
+  - That module's own doc comment frames `host` as "the peer's RapidMX server, serving its
+    `.well-known/rapidmx/keys/:hash` endpoint" - reasonable to also treat as the same server's
+    general API host (nothing in the spec suggests a separate key-only host), but worth
+    confirming when this is actually implemented, not assumed.
+  - **Real gap, not yet answered by anything in the spec**: the TXT record only yields `server`'s
+    own host, not `auth-server`'s - a separate deployment with its own hostname (see
+    `rapidmx/server`'s own `mail:auth_server_url` config, and its Helm chart's own
+    `authServer.host` default of `auth.<mainHost>` - a *convention*, not something DNS-discoverable
+    or spec'd as guaranteed). Whatever "pre-requisite work" lands in `restapi` should settle how a
+    client learns `authServerUrl` too - a new unauthenticated discovery endpoint returning it
+    alongside (or instead of) relying on an `auth.` hostname convention seems the more robust
+    shape, but that's `restapi`'s design call, not this repo's.
+  - Don't reimplement `FederationUtils.ts`'s DNS-parsing logic from scratch by hand here when this
+    is picked up - Node's own `dns.promises.resolveTxt()` is directly usable from this app's main
+    process (unlike a plain browser client, which the spec explicitly calls out as unable to do
+    DNS lookups at all - Electron's main process doesn't have that limitation), so the actual gap
+    to close is *just* the auth-server question above plus this app's own prompt/persistence UI
+    around it, not the DNS mechanism itself.
